@@ -18,7 +18,7 @@ type Server struct {
 	auctionSystem.UnimplementedAuctionServer
 	name string
 	port int64
-	// Store a progressive number for the Ids of the clients in order to give a univoque id to each client
+	// Store a progressive number for the Ids of the clients in order to give a unique id to each client
 	idCounter  int64
 	clients    []int64
 	currentBid HighestBid
