@@ -39,7 +39,7 @@ type AuctionItem struct {
 
 // hardcoded list of items user can bid on
 var auctionItems = [...]AuctionItem{
-	{name: "Item1", bid: 50, auctionLength: 20},
+	{name: "Item1", bid: 50, auctionLength: 1000},
 	{name: "Item2", bid: 20, auctionLength: 45},
 	{name: "Item3", bid: 20, auctionLength: 45},
 	{name: "Item4", bid: 20, auctionLength: 45},
@@ -128,11 +128,11 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 	// if it is the first bid of client set his id
 	if request.ClientId == -1 {
 		s.mutex.Lock()
-		defer s.mutex.Unlock()
 
 		s.idCounter++
 		id = s.idCounter
 		s.clients = append(s.clients, id)
+		s.mutex.Unlock()
 	} else {
 		id = request.ClientId
 	}
@@ -141,20 +141,20 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 	if request.Amount > s.currentBid.item.bid {
 		success = true
 		s.mutex.Lock()
-		defer s.mutex.Unlock()
 
 		s.currentBid.item.bid = request.Amount
 		s.currentBid.clientId = request.ClientId
 		bestBid = request.Amount
 		log.Printf("Bid %v from client %v accepted, current bid is %v\n", request.Amount, request.ClientId, bestBid)
+		s.mutex.Unlock()
 	} else {
 		// inform user that the bid needs to be higher
 		success = false
 		s.mutex.RLock()
-		defer s.mutex.RUnlock()
 
 		bestBid = s.currentBid.item.bid
 		log.Printf("Bid %v from client %v declined, current bid is %v\n", request.Amount, request.ClientId, bestBid)
+		s.mutex.RUnlock()
 	}
 
 	return &auctionSystem.BidReply{ClientId: id, Success: success, BestBid: bestBid}, nil

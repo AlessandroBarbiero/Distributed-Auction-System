@@ -55,12 +55,19 @@ func (c *Client) handleRequests() {
 		input := scanner.Text()
 		log.Printf("Client wrote: %s\n", input)
 
-		switch input {
-		case "s": // Show command
+		switch input[0] {
+		case 's': // Show command
 			c.Show()
-		case "b": // Bid command
-			amount := 0 //TODO: Add reading amount from command line
-			c.Bid(amount)
+		case 'b': // Bid command
+			amountStr := input[2:]
+			amount, amErr := strconv.Atoi(amountStr)
+			if amErr != nil {
+				log.Printf("Client inserted wrong input\n")
+				fmt.Println("Please insert a valid command like [b number]")
+			} else {
+				c.Bid(int64(amount))
+			}
+
 		default:
 			fmt.Println("Please insert a valid command")
 			log.Printf("Client inserted wrong input\n")
@@ -85,20 +92,54 @@ func (c *Client) connectToServers() {
 }
 
 func (c *Client) Show() {
-	c.connectToServer()
-
-	showReply, err := c.serverConnection.Show(context.Background(), &auction.ShowRequest{})
-	if err != nil {
-		log.Printf(err.Error())
-	} else {
-		log.Printf("Current bid: %s, Current winner: %s, Item: %s, Seconds left: %s\n", showReply.CurrentBid, showReply.WinningClientId, showReply.ObjectName, showReply.SecondsTillEnd)
+	msgBack := false
+	for i, serverConnection := range c.serverConnections {
+		showReply, err := serverConnection.Show(context.Background(), &auction.ShowRequest{})
+		if err != nil {
+			log.Printf("Server with port %d is down, go for the next one\n", c.serverPorts[i])
+		} else {
+			if msgBack == false {
+				log.Printf("Client %d asked for the status of auction %s\n", c.id, showReply.ObjectName)
+				fmt.Printf("Current bid: %d, Current winner: %d, Item: %s, Seconds left: %d\n", showReply.CurrentBid, showReply.WinningClientId, showReply.ObjectName, showReply.SecondsTillEnd)
+				msgBack = true
+			}
+		}
 	}
 }
 
 func (c *Client) Bid(amount int64) {
-	timeReturnMessage, err := serverConnection.AskForTime(context.Background(), &auction.AskForTimeMessage{
-		ClientId: int64(client.id),
-	})
+	msgBack := false
+	var brokenServersIdx []int
+	for i, serverConnection := range c.serverConnections {
+		bidReply, err := serverConnection.Bid(context.Background(), &auction.BidRequest{
+			ClientId: c.id,
+			Amount:   amount,
+		})
+
+		if err != nil {
+			log.Printf("Server with port %d is down, go for the next one\n", c.serverPorts[i])
+			brokenServersIdx = append(brokenServersIdx, i)
+		} else {
+			if msgBack == false {
+				if c.id == -1 {
+					c.id = bidReply.ClientId
+				}
+				if bidReply.Success == true {
+					log.Printf("Client %d bidded succesfully, new best bid %d\n", c.id, bidReply.BestBid)
+					fmt.Printf("Bid successful, new best bid %d\n", bidReply.BestBid)
+				} else {
+					log.Printf("Client %d tried to bid unsuccesfully\n", c.id)
+					fmt.Printf("Bid unsuccessful, current best bid: %d\n", bidReply.BestBid)
+				}
+
+				msgBack = true
+			}
+		}
+	}
+	for _, idx := range brokenServersIdx {
+		c.serverConnections = removeFromSlice(c.serverConnections, idx)
+	}
+
 }
 
 // Read DNS Cache file to save ports of the servers
