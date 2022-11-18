@@ -37,6 +37,7 @@ type AuctionItem struct {
 	auctionLength int64
 }
 
+// hardcoded list of items user can bid on
 var auctionItems = [...]AuctionItem{
 	{name: "Item1", bid: 50, auctionLength: 20},
 	{name: "Item2", bid: 20, auctionLength: 45},
@@ -50,9 +51,7 @@ var auctionItems = [...]AuctionItem{
 
 func main() {
 	// Get the port from the command line when the server is run
-	// flag.Parse()
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
-	// Hardcoded port
 	port := &arg1
 
 	// Create a server struct
@@ -90,6 +89,7 @@ func startServer(server *Server) {
 
 	log.Printf("Started server at port: %d\n", server.port)
 
+	// start the automatic creation of new bids
 	go server.updateBids()
 
 	// Register the grpc server and serve its listener
@@ -101,16 +101,19 @@ func startServer(server *Server) {
 
 }
 
+// function controlling what can users bit on at the moment
 func (s *Server) updateBids() {
 	numOfItems := len(auctionItems)
 	counter := 0
 	for {
+		// set next item in the list as current biding item
 		s.mutex.Lock()
 		s.currentBid.item = auctionItems[counter%numOfItems]
 		s.currentBid.startTime = time.Now()
 		log.Printf("Auction for item %v started at %v and lasts %v seconds\n", s.currentBid.item.name, s.currentBid.startTime, s.currentBid.item.auctionLength)
 		s.mutex.Unlock()
 
+		// wait for auction to expire
 		time.Sleep(time.Duration(s.currentBid.item.auctionLength) * time.Second)
 		counter++
 		log.Printf("Auction for item %v ended at %v\n", s.currentBid.item.name, time.Now())
@@ -122,6 +125,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 	var success bool
 	var bestBid int64
 	log.Printf("Received bid request\n")
+	// if it is the first bid of client set his id
 	if request.ClientId == -1 {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
@@ -133,6 +137,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 		id = request.ClientId
 	}
 
+	// if the bid is higher than current bid set it to new value
 	if request.Amount > s.currentBid.item.bid {
 		success = true
 		s.mutex.Lock()
@@ -143,6 +148,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 		bestBid = request.Amount
 		log.Printf("Bid %v from client %v accepted, current bid is %v\n", request.Amount, request.ClientId, bestBid)
 	} else {
+		// inform user that the bid needs to be higher
 		success = false
 		s.mutex.RLock()
 		defer s.mutex.RUnlock()
@@ -154,6 +160,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 	return &auctionSystem.BidReply{ClientId: id, Success: success, BestBid: bestBid}, nil
 }
 
+// Show client info about item, he can bid on at the moment
 func (s *Server) Show(ctx context.Context, request *auctionSystem.ShowRequest) (*auctionSystem.ShowReply, error) {
 	var secondsLeft int64
 	var currentBid int64
@@ -173,6 +180,7 @@ func (s *Server) Show(ctx context.Context, request *auctionSystem.ShowRequest) (
 	return &auctionSystem.ShowReply{CurrentBid: currentBid, WinningClientId: winningClient, ObjectName: name, SecondsTillEnd: secondsLeft}, nil
 }
 
+// compute the number of seconds before end of the auction
 func (s *Server) getSecondsTillEnd() int64 {
 	diff := time.Now().Sub(s.currentBid.startTime)
 	return s.currentBid.item.auctionLength - int64(math.Round(diff.Seconds()))
