@@ -145,7 +145,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 		s.currentBid.item.bid = request.Amount
 		s.currentBid.clientId = id
 		bestBid = request.Amount
-		log.Printf("Bid %v from client %v accepted, current bid is %v\n", request.Amount, request.ClientId, bestBid)
+		log.Printf("Bid %v from client %v accepted, current bid is %v\n", request.Amount, id, bestBid)
 		s.mutex.Unlock()
 	} else {
 		// inform user that the bid needs to be higher
@@ -153,7 +153,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 		s.mutex.RLock()
 
 		bestBid = s.currentBid.item.bid
-		log.Printf("Bid %v from client %v declined, current bid is %v\n", request.Amount, request.ClientId, bestBid)
+		log.Printf("Bid %v from client %v declined, current bid is %v\n", request.Amount, id, bestBid)
 		s.mutex.RUnlock()
 	}
 
