@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+    "fmt"
 
 	"google.golang.org/grpc"
 )
@@ -88,6 +89,7 @@ func startServer(server *Server) {
 	log.SetOutput(f)
 
 	log.Printf("Started server at port: %d\n", server.port)
+    fmt.Printf("Started server at port: %d\n", server.port)
 
 	// start the automatic creation of new bids
 	go server.updateBids()
