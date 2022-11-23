@@ -3,6 +3,7 @@ package main
 import (
 	"auctionSystem/grpc"
 	"context"
+	"fmt"
 	"log"
 	"math"
 	"net"
@@ -10,7 +11,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-    "fmt"
 
 	"google.golang.org/grpc"
 )
@@ -40,15 +40,12 @@ type AuctionItem struct {
 
 // hardcoded list of items user can bid on
 var auctionItems = [...]AuctionItem{
-	{name: "Item1", bid: 50, auctionLength: 1000},
-	{name: "Item2", bid: 20, auctionLength: 45},
-	{name: "Item3", bid: 20, auctionLength: 45},
-	{name: "Item4", bid: 20, auctionLength: 45},
-	{name: "Item5", bid: 20, auctionLength: 45},
+	{name: "Shining bowling ball", bid: 50, auctionLength: 100},
+	{name: "Spare shoe", bid: 20, auctionLength: 100},
+	{name: "Old jacket", bid: 20, auctionLength: 100},
+	{name: "Creamy carbonara", bid: 20, auctionLength: 100},
+	{name: "A kiss from an old woman", bid: 100, auctionLength: 100},
 }
-
-// Add this part if we want to use parametric port on call of the method
-// var port = flag.Int("port", 0, "server port number")
 
 func main() {
 	// Get the port from the command line when the server is run
@@ -87,9 +84,10 @@ func startServer(server *Server) {
 	defer f.Close()
 
 	log.SetOutput(f)
+	log.SetPrefix(fmt.Sprintf("Server %v: ", server.port))
 
 	log.Printf("Started server at port: %d\n", server.port)
-    fmt.Printf("Started server at port: %d\n", server.port)
+	fmt.Printf("Started server at port: %d\n", server.port)
 
 	// start the automatic creation of new bids
 	go server.updateBids()
@@ -145,7 +143,7 @@ func (s *Server) Bid(ctx context.Context, request *auctionSystem.BidRequest) (*a
 		s.mutex.Lock()
 
 		s.currentBid.item.bid = request.Amount
-		s.currentBid.clientId = request.ClientId
+		s.currentBid.clientId = id
 		bestBid = request.Amount
 		log.Printf("Bid %v from client %v accepted, current bid is %v\n", request.Amount, request.ClientId, bestBid)
 		s.mutex.Unlock()

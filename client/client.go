@@ -29,6 +29,12 @@ func main() {
 
 	log.SetOutput(f)
 
+	// Add a client name for testing purposes
+	if len(os.Args) > 1 {
+		// Get the name from the command line when the client is run
+		log.SetPrefix(fmt.Sprintf("Client %v: ", os.Args[1]))
+	}
+
 	// Create an empty client
 	client := &Client{
 		id: -1, // id -1 means the client doesn't have yet an id
@@ -123,12 +129,13 @@ func (c *Client) Bid(amount int64) {
 			if msgBack == false {
 				if c.id == -1 {
 					c.id = bidReply.ClientId
+					fmt.Printf("Your Id for this auction is: %d\n", c.id)
 				}
 				if bidReply.Success == true {
-					log.Printf("Client %d bidded succesfully, new best bid %d\n", c.id, bidReply.BestBid)
+					log.Printf("Client %d bid successfully, new best bid %d\n", c.id, bidReply.BestBid)
 					fmt.Printf("Bid successful, new best bid %d\n", bidReply.BestBid)
 				} else {
-					log.Printf("Client %d tried to bid unsuccesfully\n", c.id)
+					log.Printf("Client %d tried to bid unsuccessfully\n", c.id)
 					fmt.Printf("Bid unsuccessful, current best bid: %d\n", bidReply.BestBid)
 				}
 
